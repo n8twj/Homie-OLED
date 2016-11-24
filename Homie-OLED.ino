@@ -18,7 +18,7 @@ bool displayHandler(HomieRange range, String value) {
 }
 
 void onMqttConnect(bool sessionPresent) {
-  uint16_t packetIdSub = mqttClient.subscribe("homie/0fc9bdef/temperature/Fahrenheit", 2);
+  uint16_t packetIdSub = mqttClient.subscribe("devices/0fc9bdef/temperature/Fahrenheit", 2);
   Serial.print("Subscribing at QoS 2, packetId: ");
   Serial.println(packetIdSub);
 }
