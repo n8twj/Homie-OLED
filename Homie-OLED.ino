@@ -3,65 +3,62 @@
 
 #define PIN_LED D0
 
-//U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ D6, /* data=*/ D5, /* reset=*/ U8X8_PIN_NONE);
-U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ D6, /* data=*/ D5, /* reset=*/ U8X8_PIN_NONE); 
+U8G2_SSD1306_128X64_NONAME_F_SW_I2C display(U8G2_R0, /* clock=*/ D6, /* data=*/ D5, /* reset=*/ U8X8_PIN_NONE); 
 
-
-HomieNode displayNode("oled", "oled");
-
+HomieNode displayNode("display", "display");
 AsyncMqttClient mqttClient;
 
 bool displayHandler(HomieRange range, String value) {
-  u8g2.clearBuffer(); 
-  u8g2.drawStr(0,25, value.c_str() );
-  u8g2.sendBuffer();
-}
-
-void onMqttConnect(bool sessionPresent) {
-  uint16_t packetIdSub = mqttClient.subscribe("devices/0fc9bdef/temperature/Fahrenheit", 2);
-  Serial.print("Subscribing at QoS 2, packetId: ");
-  Serial.println(packetIdSub);
+  display.clearBuffer(); 
+  display.setFont(u8g2_font_ncenB08_tf);
+  display.drawStr(0,24,"Flowering Room");
+  display.setFont(u8g2_font_profont22_mf ); // choose a suitable font
+  display.drawStr(13,45,"74F - 55%");  // write something to the internal memory
+  display.setFont(u8g2_font_ncenB08_tf);
+  display.drawStr(0,55, value.c_str() );
+  display.sendBuffer();          // transfer internal memory to the display
 }
 
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   Serial.println("** Publish received **");
   Serial.print("  topic: ");
   Serial.println(topic);
-  Serial.print("  qos: ");
-  Serial.println(properties.qos);
-  Serial.print("  dup: ");
-  Serial.println(properties.dup);
-  Serial.print("  retain: ");
-  Serial.println(properties.retain);
-  Serial.print("  len: ");
-  Serial.println(len);
-  Serial.print("  index: ");
-  Serial.println(index);
-  Serial.print("  total: ");
-  Serial.println(total);
-  Serial.print("  payload: ");
+  Serial.print("payload: ");
   Serial.println(payload);
+}
+
+void onHomieEvent(const HomieEvent& event) {
+  switch(event.type) {
+     case HomieEventType::MQTT_CONNECTED:
+       // this gets called by homie
+       uint16_t packetIdSub = mqttClient.subscribe("test/message", 0);
+       Serial.print("Subscribing at QoS 0, packetId: ");
+       Serial.println(packetIdSub); // packetId: 0
+
+       packetIdSub = mqttClient.subscribe("test/message2", 0);
+       Serial.print("Subscribing at QoS 0, packetId: "); 
+       Serial.println(packetIdSub);  // packetId: 0
+
+       mqttClient.onMessage(onMqttMessage); // never gets called
+        
+       break;    
+  }
 }
 
 void setup() {
   Serial.begin(115200);
-  u8g2.begin();
-  u8g2.clearBuffer(); // clear the internal memory
-  u8g2.setFont(u8g2_font_victoriabold8_8r); // choose a suitable font
-  u8g2.drawStr(0,10,"Temp/Humidity");  // write something to the internal memory
-//  u8g2.setFont(u8g2_font_ncenB18_tf); // choose a suitable font
-//  u8g2.drawStr(0,10,"80F");  // write something to the internal memory
-//  u8g2.drawStr(0,20,"60%");  // write something to the internal memory
-  u8g2.sendBuffer();          // transfer internal memory to the display
+  display.begin();
+  display.clearBuffer();
 
   Homie_setFirmware("oled-display", "0.0.1");
-  Homie.setLedPin(PIN_LED, HIGH);
-
-  displayNode.advertise("display").settable(displayHandler);
-
+  Homie.setLedPin(PIN_LED, LOW);
+  Homie.onEvent(onHomieEvent); 
+  
+//displayNode.advertise("temperature").settable(displayTempHandler);
+//displayNode.advertise("humidity").settable(displayHumidityHandler);
+  displayNode.advertise("message").settable(displayHandler);  
   mqttClient = Homie.getMqttClient();
-  mqttClient.onConnect(onMqttConnect);
-
+  
   Homie.setup();
 }
 
